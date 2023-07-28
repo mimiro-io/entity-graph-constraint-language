@@ -1,0 +1,6 @@
+github.com/franela/goblin v0.0.0-20211003143422-0a4f594942bf h1:NrF81UtW8gG2LBGkXFQFqlfNnvMt9WdB46sfdJY4oqc=
+github.com/franela/goblin v0.0.0-20211003143422-0a4f594942bf/go.mod h1:VzmDKDJVZI3aJmnRI9VjAn9nJ8qPPsN1fqzr9dqInIo=
+github.com/mimiro-io/entity-graph-data-model v0.0.0-20230728105517-f8266cac5fa9 h1:JJMQkVNyhCrXQp9IdED6Jy01P7Qda248yI46M9lyHeY=
+github.com/mimiro-io/entity-graph-data-model v0.0.0-20230728105517-f8266cac5fa9/go.mod h1:A8mcR2hTwAHwK7+kUpZqS1KyKc9hWFwx6o64tp6wM20=
+github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
+github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
