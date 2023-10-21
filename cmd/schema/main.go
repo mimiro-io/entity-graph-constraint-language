@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+
 	egcl "github.com/mimiro-io/entity-graph-constraint-language"
 )
 
@@ -14,4 +15,5 @@ func main() {
 }
 
 func validate() {
+	egcl.Validate()
 }
