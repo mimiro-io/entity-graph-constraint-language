@@ -1,4 +1,4 @@
-module mimiro-io/entity-graph-constraint-langauge
+module github.com/mimiro-io/entity-graph-constraint-langauge
 
 go 1.20
 
