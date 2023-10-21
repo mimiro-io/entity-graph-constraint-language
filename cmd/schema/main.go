@@ -14,5 +14,4 @@ func main() {
 }
 
 func validate() {
-
 }
