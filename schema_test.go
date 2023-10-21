@@ -11,7 +11,7 @@ import (
 
 func newParser() egdm.Parser {
 	namespaceManager := egdm.NewNamespaceContext()
-	parser := egdm.NewEntityParser(namespaceManager, true)
+	parser := egdm.NewEntityParser(namespaceManager)
 	return parser
 }
 

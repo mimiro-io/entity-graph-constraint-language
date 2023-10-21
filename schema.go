@@ -2,7 +2,7 @@ package egcl
 
 import (
 	egdm "github.com/mimiro-io/entity-graph-data-model"
-	errors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 )
 
 const RDFUriExpansion = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
@@ -60,8 +60,8 @@ type Schema struct {
 	EntityCollection *egdm.EntityCollection
 	EntityClasses    []*EntityClass
 	Constraints      []any
-	baseURI          string
-	description      string
+	BaseURI          string
+	Description      string
 }
 
 func (aSchema *Schema) IsOfType(entity *egdm.Entity, typeURI string) bool {
@@ -418,11 +418,9 @@ func newApplicationConstraint(entity *egdm.Entity) *ApplicationConstraint {
 	return c
 }
 
+type InverseReferenceConstraint struct {
+	Constraint
+}
+
 type PropertyValueConstraint struct {
-}
-
-type ConstraintViolation struct {
-}
-
-type PropertyConstraintViolation struct {
 }
