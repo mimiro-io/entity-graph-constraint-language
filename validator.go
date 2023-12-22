@@ -7,9 +7,17 @@ import (
 	"math"
 )
 
-type ReferenceResolver interface {
+type DataProvider interface {
 	Hop(sourceEntityId string, reference string, inverse bool) ([]*egdm.Entity, error)
 	GetEntity(entityId string) (*egdm.Entity, error)
+	GetDatasetEntities(name string) ([]*egdm.Entity, error)
+}
+
+type SchemaValidator interface {
+	ValidateEntity(schema *Schema, entity *egdm.Entity) (ok bool, exceptions []*ConstraintViolation, err error)
+	ValidateDataset(schema *Schema, datasetName string) (ok bool, exceptions []*ConstraintViolation, err error)
+	ValidateSchema(schema *Schema) (ok bool, exceptions []*ConstraintViolation, err error)
+	ValidateEntityCollection(schema *Schema, entityCollection *egdm.EntityCollection) (ok bool, exceptions []*ConstraintViolation, err error)
 }
 
 type NamespaceResolver interface {
@@ -17,33 +25,31 @@ type NamespaceResolver interface {
 }
 
 type ValidatorSettings struct {
-	ValidateReferences bool
-	closedWorldFlag    bool
-	clientSecret       string
-	clientKey          string
-	server             string
-	privateKey         string
-	validateRelated    bool
-	schema             string
-	dataset            string
-	datasetsContext    []string
+	// StrictValidation will cause the validator to fail if an entity has properties or references that are not defined in the schema
+	StrictValidation bool
+	// ValidateRelated enables validation of referenced entities, specifically that they exist and are of the correct type
+	ValidateRelated bool
+	// datasetsContext defines the set of datasets that are in play when checking referenced entities
+	DatasetsContext []string
 }
 
 type Validator struct {
-	settings *ValidatorSettings
-	resolver ReferenceResolver
+	settings     *ValidatorSettings
+	dataProvider DataProvider
 }
 
 func NewValidator() *Validator {
 	return &Validator{}
 }
 
-func (v *Validator) WithSettings(settings *ValidatorSettings) {
+func (v *Validator) WithSettings(settings *ValidatorSettings) *Validator {
 	v.settings = settings
+	return v
 }
 
-func (v *Validator) WithResolver(resolver ReferenceResolver) {
-	v.resolver = resolver
+func (v *Validator) WithDataProvider(provider DataProvider) *Validator {
+	v.dataProvider = provider
+	return v
 }
 
 type ViolationType int
@@ -55,6 +61,7 @@ const (
 	MaxReferenceOccurrenceExceeded
 	ReferenceNotFound
 	ReferenceTypeMismatch
+	AbstractEntityClassViolation
 )
 
 // for our purposes, we can use math.MaxInt32 as infinity
@@ -76,7 +83,43 @@ func NewConstraintViolation(constraint any, entity *egdm.Entity, violationType V
 	return violation
 }
 
-func (v *Validator) Validate(schema *Schema, entity *egdm.Entity) (ok bool, exceptions []*ConstraintViolation, err error) {
+// ValidateDataset validates the given dataset against the data in the named dataset
+func (v *Validator) ValidateDataset(schema *Schema, datasetName string) (ok bool, exceptions []*ConstraintViolation, err error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+// ValidateSchema validates the given schema against data accessible to this validator
+func (v *Validator) ValidateSchema(schema *Schema) (ok bool, exceptions []*ConstraintViolation, err error) {
+	//TODO implement me
+
+	// return v.CheckIsAbstractConstraint(c)
+
+	panic("implement me")
+}
+
+// ValidateEntityCollection validates the given entity collection against the given schema
+func (v *Validator) ValidateEntityCollection(schema *Schema, entityCollection *egdm.EntityCollection) (ok bool, exceptions []*ConstraintViolation, err error) {
+	exceptions = make([]*ConstraintViolation, 0)
+	ok = true
+	err = nil
+
+	for _, entity := range entityCollection.Entities {
+		valid, entityExceptions, err := v.ValidateEntity(schema, entity)
+		if err != nil {
+			return false, nil, err
+		}
+
+		if !valid {
+			ok = false
+			exceptions = append(exceptions, entityExceptions...)
+		}
+	}
+
+	return
+}
+
+func (v *Validator) ValidateEntity(schema *Schema, entity *egdm.Entity) (ok bool, exceptions []*ConstraintViolation, err error) {
 	exceptions = make([]*ConstraintViolation, 0)
 	ok = true
 	err = nil
@@ -96,9 +139,9 @@ func (v *Validator) Validate(schema *Schema, entity *egdm.Entity) (ok bool, exce
 		constraints := schema.GetConstraintsForEntityClass(class, true)
 		for _, constraint := range constraints {
 			// check if constraint is violated
-			valid, violation, cerr := v.CheckConstraint(constraint, entity)
-			if cerr != nil {
-				err = cerr
+			valid, violation, constraintError := v.CheckConstraint(schema, constraint, entity)
+			if constraintError != nil {
+				err = constraintError
 				return
 			}
 
@@ -114,7 +157,7 @@ func (v *Validator) Validate(schema *Schema, entity *egdm.Entity) (ok bool, exce
 
 // CheckConstraint checks if the given constraint is violated for the given entity. Returns false if the constraint is ok
 // and true and a constraint violation struct if not. Error is returned if something went wrong while checking the constraint.
-func (v *Validator) CheckConstraint(constraint any, entity *egdm.Entity) (bool, *ConstraintViolation, error) {
+func (v *Validator) CheckConstraint(schema *Schema, constraint any, entity *egdm.Entity) (bool, *ConstraintViolation, error) {
 	switch c := constraint.(type) {
 	case *ReferenceConstraint:
 		return v.CheckReferenceConstraint(entity, c)
@@ -123,8 +166,8 @@ func (v *Validator) CheckConstraint(constraint any, entity *egdm.Entity) (bool, 
 	case *PropertyConstraint:
 		return v.CheckPropertyConstraint(entity, c)
 	case *IsAbstractConstraint:
-		// todo: this is in the wrong place. There needs to be something else that triggers these store wide checks.
-		return v.CheckIsAbstractConstraint(c)
+		// this checks if this entity is an implementation of a EntityClass that is defined as abstract
+		return v.CheckEntityIsAbstractConstraint(schema, entity, c)
 	}
 
 	return false, nil, errors.New("constraint type not supported")
@@ -137,7 +180,11 @@ func (v *Validator) CheckReferenceConstraint(entity *egdm.Entity, constraint *Re
 	}
 	minCard := constraint.GetMinAllowedOccurrences()
 	maxCard := constraint.GetMaxAllowedOccurrences()
-	value, ok := entity.Properties[propertyURI]
+	if maxCard == -1 {
+		maxCard = MaxInt
+	}
+
+	value, ok := entity.References[propertyURI]
 	if ok {
 		// check cardinality
 		switch values := value.(type) {
@@ -153,9 +200,9 @@ func (v *Validator) CheckReferenceConstraint(entity *egdm.Entity, constraint *Re
 			}
 
 			// if enabled check related entity exists and is of correct type
-			if v.settings.validateRelated {
-				if v.resolver == nil {
-					return false, nil, errors.New("no reference resolver configured")
+			if v.settings.ValidateRelated {
+				if v.dataProvider == nil {
+					return false, nil, errors.New("no data provider configured")
 				}
 
 				for _, ref := range values {
@@ -196,7 +243,7 @@ func (v *Validator) CheckReferenceConstraint(entity *egdm.Entity, constraint *Re
 }
 
 func (v *Validator) CheckExistenceAndTypeOfReferencedEntity(entityId string, expectedType string) (valid bool, violation *ConstraintViolation, err error) {
-	entity, err := v.resolver.GetEntity(entityId)
+	entity, err := v.dataProvider.GetEntity(entityId)
 	if err != nil {
 		return false, nil, err
 	}
@@ -231,10 +278,10 @@ func (v *Validator) CheckExistenceAndTypeOfReferencedEntity(entityId string, exp
 }
 
 func (v *Validator) isDatasetInContext(dataset string) bool {
-	if v.settings.datasetsContext == nil {
+	if v.settings.DatasetsContext == nil {
 		return true
 	} else {
-		for _, ds := range v.settings.datasetsContext {
+		for _, ds := range v.settings.DatasetsContext {
 			if ds == dataset {
 				return true
 			}
@@ -293,8 +340,32 @@ func (v *Validator) CheckPropertyConstraint(entity *egdm.Entity, constraint *Pro
 	return true, nil, nil
 }
 
-func (v *Validator) CheckIsAbstractConstraint(constraint *IsAbstractConstraint) (bool, *ConstraintViolation, error) {
-	if v.resolver == nil {
+func (v *Validator) CheckEntityIsAbstractConstraint(schema *Schema, entity *egdm.Entity, constraint *IsAbstractConstraint) (bool, *ConstraintViolation, error) {
+	// get the rdf type of the entity provided
+	classes, ok := entity.References[RDfTypeURI]
+	if !ok {
+		// no rdf type found, so this entity is not instance if an abstract class
+		return true, nil, nil
+	}
+
+	// get class in the constraint
+	abstractClass := constraint.GetEntityClass()
+
+	classesArray := makeStringArray(classes)
+	if classesArray != nil {
+		for _, class := range classesArray {
+			if class == abstractClass {
+				return false, NewConstraintViolation(constraint, entity, AbstractEntityClassViolation,
+					fmt.Sprintf("expected type %v to be abstract but entity %s is an instance", class, entity.ID)), nil
+			}
+		}
+	}
+
+	return true, nil, nil
+}
+
+func (v *Validator) CheckGlobalIsAbstractConstraint(constraint *IsAbstractConstraint) (bool, *ConstraintViolation, error) {
+	if v.dataProvider == nil {
 		return false, nil, errors.New("no reference resolver configured")
 	}
 
@@ -304,7 +375,7 @@ func (v *Validator) CheckIsAbstractConstraint(constraint *IsAbstractConstraint) 
 		return false, nil, err
 	}
 
-	instances, err := v.resolver.Hop(abstractType, RDfTypeURI, true)
+	instances, err := v.dataProvider.Hop(abstractType, RDfTypeURI, true)
 	if err != nil {
 		return false, nil, err
 	}

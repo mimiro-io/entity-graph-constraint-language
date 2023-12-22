@@ -56,6 +56,11 @@ func NewSchema(entities *egdm.EntityCollection) *Schema {
 	return schema
 }
 
+func NewSchemaFromYaml(yaml string) (*Schema, error) {
+
+	return NewSchema(nil), nil
+}
+
 type Schema struct {
 	EntityCollection *egdm.EntityCollection
 	EntityClasses    []*EntityClass
@@ -195,7 +200,15 @@ func (aSchema *Schema) GetConstraintsForEntityClass(entityClassIdentifier string
 		superclasses, _ := aSchema.GetEntityClassClassHierarchy(entityClassIdentifier)
 		for _, superClass := range superclasses {
 			superConstraints := aSchema.GetConstraintsForEntityClass(superClass, false)
-			constraints = append(constraints, superConstraints...)
+
+			// filter out abstract constraints from any super classes
+			for _, superConstraint := range superConstraints {
+				switch superConstraint.(type) {
+				case *IsAbstractConstraint:
+					continue
+				}
+				constraints = append(constraints, superConstraint)
+			}
 		}
 	}
 
@@ -217,7 +230,7 @@ func (aSchema *Schema) initialize() {
 	entities := aSchema.EntityCollection.Entities
 	for _, entity := range entities {
 		if aSchema.IsOfType(entity, EGCLEntityClass) {
-			ec := newEntityClass(entity)
+			ec := NewEntityClass(entity)
 			aSchema.EntityClasses = append(aSchema.EntityClasses, ec)
 		} else if aSchema.IsOfType(entity, EGCLPropertyConstraint) {
 			c := newPropertyConstraint(entity)
@@ -235,7 +248,7 @@ func (aSchema *Schema) initialize() {
 	}
 }
 
-func newEntityClass(entity *egdm.Entity) *EntityClass {
+func NewEntityClass(entity *egdm.Entity) *EntityClass {
 	ec := &EntityClass{}
 	ec.Entity = entity
 	return ec
@@ -386,6 +399,13 @@ func newIsAbstractConstraint(entity *egdm.Entity) *IsAbstractConstraint {
 
 type IsAbstractConstraint struct {
 	Constraint
+}
+
+func (c *IsAbstractConstraint) GetEntityClass() string {
+	if res, err := c.Entity.GetFirstReferenceValue(EGCLentityClass); err == nil {
+		return res
+	}
+	return ""
 }
 
 type ApplicationConstraint struct {
