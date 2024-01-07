@@ -66,6 +66,9 @@
 
   {
     "id" : "things:6",
+    "props" : {
+      "model:status": [ "active", "inactive" ]
+    },
     "refs" : {
       "rdf:type": "model:Entity"
     }

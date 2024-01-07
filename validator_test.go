@@ -47,7 +47,7 @@ func TestBuildValidator(t *testing.T) {
 		t.Error("expected validation to fail")
 	}
 
-	if len(violations) != 1 {
-		t.Errorf("expected 1 violation, got %d", len(violations))
+	if len(violations) != 7 {
+		t.Errorf("expected 7 violations, got %d", len(violations))
 	}
 }
