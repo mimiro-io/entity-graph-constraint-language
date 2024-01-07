@@ -12,7 +12,7 @@ type RemoteDataProvider struct {
 	client *datahub.Client
 }
 
-func NewRemoteDatahubQueryHelper(endpoint string) (*RemoteDataProvider, error) {
+func NewRemoteDataProvider(endpoint string) (*RemoteDataProvider, error) {
 	client, err := datahub.NewClient(endpoint)
 	if err != nil {
 		return nil, err
