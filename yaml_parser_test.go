@@ -7,7 +7,7 @@ import (
 
 func TestParseYAML(t *testing.T) {
 	// load yaml file as bytes
-	yamlFile, err := os.ReadFile("egcl-sample.yaml")
+	yamlFile, err := os.ReadFile("./test_data/egcl-sample.yaml")
 	if err != nil {
 		t.Error(err)
 	}
@@ -32,7 +32,7 @@ func TestParseYAML(t *testing.T) {
 	}
 
 	// check there are 6 constraints
-	if len(schema.Constraints) != 6 {
-		t.Errorf("expected schema to have 3 constraints, got %d", len(schema.Constraints))
+	if len(schema.Constraints) != 4 {
+		t.Errorf("expected schema to have 4 constraints, got %d", len(schema.Constraints))
 	}
 }

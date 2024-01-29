@@ -2,7 +2,6 @@ package egcl
 
 import (
 	"bytes"
-	"crypto/rsa"
 	"encoding/json"
 	datahub "github.com/mimiro-io/datahub-client-sdk-go"
 	egdm "github.com/mimiro-io/entity-graph-data-model"
@@ -12,32 +11,12 @@ type RemoteDataProvider struct {
 	client *datahub.Client
 }
 
-func NewRemoteDataProvider(endpoint string) (*RemoteDataProvider, error) {
-	client, err := datahub.NewClient(endpoint)
-	if err != nil {
-		return nil, err
-	}
-
+func NewRemoteDataProvider(client *datahub.Client) (*RemoteDataProvider, error) {
 	resolver := &RemoteDataProvider{
 		client: client,
 	}
 
 	return resolver, nil
-}
-
-func (r *RemoteDataProvider) WithClientKeyAndSecretAuth(authorizer string, audience string, key string, secret string) *RemoteDataProvider {
-	r.client.WithClientKeyAndSecretAuth(authorizer, audience, key, secret)
-	return r
-}
-
-func (r *RemoteDataProvider) WithPublicKeyAuth(clientID string, privateKey *rsa.PrivateKey) *RemoteDataProvider {
-	r.client.WithPublicKeyAuth(clientID, privateKey)
-	return r
-}
-
-func (r *RemoteDataProvider) WithAdminAuth(clientID string, clientSecret string) *RemoteDataProvider {
-	r.client.WithAdminAuth(clientID, clientSecret)
-	return r
 }
 
 func (r *RemoteDataProvider) GetEntity(id string, datasets []string) (*egdm.Entity, error) {
@@ -70,19 +49,10 @@ func (r *RemoteDataProvider) GetEntity(id string, datasets []string) (*egdm.Enti
 	return egc.Entities[0], nil
 }
 
-func (r *RemoteDataProvider) GetReferencingEntities(id string, referenceClass string) ([]*egdm.Entity, error) {
-	return nil, nil
+func (r *RemoteDataProvider) GetDatasetEntities(name string) (datahub.EntityIterator, error) {
+	return r.client.GetEntitiesStream(name, "", -1, false, true)
 }
 
-/*
-type ConstraintViolation struct {
-	Constraint any
-	Message    string
+func (r *RemoteDataProvider) Hop(sourceEntityId string, reference string, datasets []string, inverse bool, limit int) (datahub.EntityIterator, error) {
+	return r.client.RunHopQuery(sourceEntityId, reference, datasets, inverse, limit)
 }
-
-func NewConstraintViolation(constraint any, message string) *ConstraintViolation {
-	return &ConstraintViolation{
-		Constraint: constraint,
-		Message:    message,
-	}
-} */

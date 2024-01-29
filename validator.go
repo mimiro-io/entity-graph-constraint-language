@@ -2,15 +2,16 @@ package egcl
 
 import (
 	"fmt"
+	"github.com/mimiro-io/datahub-client-sdk-go"
 	egdm "github.com/mimiro-io/entity-graph-data-model"
 	"github.com/pkg/errors"
 	"math"
 )
 
 type DataProvider interface {
-	Hop(sourceEntityId string, reference string, inverse bool) ([]*egdm.Entity, error)
-	GetEntity(entityId string) (*egdm.Entity, error)
-	GetDatasetEntities(name string) ([]*egdm.Entity, error)
+	Hop(sourceEntityId string, reference string, datasets []string, inverse bool, limit int) (datahub.EntityIterator, error)
+	GetEntity(entityId string, datasets []string) (*egdm.Entity, error)
+	GetDatasetEntities(dataset string) (datahub.EntityIterator, error)
 }
 
 type SchemaValidator interface {
@@ -83,19 +84,88 @@ func NewConstraintViolation(constraint any, entity *egdm.Entity, violationType V
 	return violation
 }
 
-// ValidateDataset validates the given dataset against the data in the named dataset
+// ValidateDataset validates the given schema against the data in the named dataset
 func (v *Validator) ValidateDataset(schema *Schema, datasetName string) (ok bool, exceptions []*ConstraintViolation, err error) {
-	//TODO implement me
-	panic("implement me")
+	exceptions = make([]*ConstraintViolation, 0)
+	ok = true
+	err = nil
+
+	if v.dataProvider == nil {
+		return false, nil, errors.New("no data provider configured")
+	}
+
+	// get all entities in the dataset
+	datasetEntities, err := v.dataProvider.GetDatasetEntities(datasetName)
+	if err != nil {
+		return false, nil, err
+	}
+
+	// iterate over entities when next is not nil
+	var entity *egdm.Entity
+	entity, err = datasetEntities.Next()
+	for entity != nil {
+		valid, entityExceptions, err := v.ValidateEntity(schema, entity)
+		if err != nil {
+			return false, nil, err
+		}
+
+		if !valid {
+			ok = false
+			exceptions = append(exceptions, entityExceptions...)
+		}
+
+		entity, err = datasetEntities.Next()
+		if err != nil {
+			return false, nil, err
+		}
+	}
+
+	return
 }
 
 // ValidateSchema validates the given schema against data accessible to this validator
 func (v *Validator) ValidateSchema(schema *Schema) (ok bool, exceptions []*ConstraintViolation, err error) {
-	//TODO implement me
+	// get all classes defined in the schema
+	classes := schema.EntityClasses
+	exceptions = make([]*ConstraintViolation, 0)
 
-	// return v.CheckIsAbstractConstraint(c)
+	for _, class := range classes {
+		classId := class.Entity.ID
 
-	panic("implement me")
+		// get an iterator over all instances of a class
+		instances, err := v.dataProvider.Hop(classId, RDfTypeURI, v.settings.DatasetsContext, true, 5000)
+		entity, err := instances.Next()
+		if err != nil {
+			return false, nil, err
+		}
+
+		for entity != nil {
+
+			// get all constraints for this class
+			constraints := schema.GetConstraintsForEntityClass(class.Entity.ID, true)
+			for _, constraint := range constraints {
+				// check if constraint is violated
+				valid, violation, constraintError := v.CheckConstraint(schema, constraint, entity)
+				if constraintError != nil {
+					err = constraintError
+					return false, nil, err
+				}
+
+				if !valid && violation != nil {
+					ok = false
+					exceptions = append(exceptions, violation)
+				}
+			}
+
+			entity, err = instances.Next()
+			if err != nil {
+				return false, nil, err
+			}
+		}
+	}
+
+	isValid := len(exceptions) == 0
+	return isValid, exceptions, nil
 }
 
 // ValidateEntityCollection validates the given entity collection against the given schema
@@ -243,7 +313,7 @@ func (v *Validator) CheckReferenceConstraint(entity *egdm.Entity, constraint *Re
 }
 
 func (v *Validator) CheckExistenceAndTypeOfReferencedEntity(entityId string, expectedType string) (valid bool, violation *ConstraintViolation, err error) {
-	entity, err := v.dataProvider.GetEntity(entityId)
+	entity, err := v.dataProvider.GetEntity(entityId, nil)
 	if err != nil {
 		return false, nil, err
 	}
@@ -375,14 +445,20 @@ func (v *Validator) CheckGlobalIsAbstractConstraint(constraint *IsAbstractConstr
 		return false, nil, err
 	}
 
-	instances, err := v.dataProvider.Hop(abstractType, RDfTypeURI, true)
+	// use a limit of 1 as we only want to know if there are any instances
+	instances, err := v.dataProvider.Hop(abstractType, RDfTypeURI, v.settings.DatasetsContext, true, 1)
 	if err != nil {
 		return false, nil, err
 	}
 
-	if len(instances) > 0 {
+	e1, err := instances.Next()
+	if err != nil {
+		return false, nil, err
+	}
+
+	if e1 != nil {
 		return false, NewConstraintViolation(constraint, constraint.Entity, ReferenceTypeMismatch,
-			fmt.Sprintf("expected type %v to have 0 instances but found %d", abstractType, len(instances))), nil
+			fmt.Sprintf("expected type %v to have 0 instances but found at least 1", abstractType)), nil
 	}
 
 	return true, nil, nil
