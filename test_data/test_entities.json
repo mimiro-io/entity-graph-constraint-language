@@ -1,0 +1,76 @@
+[
+  {
+    "id" : "@context",
+    "namespaces" : {
+      "dc" : "http://purl.org/dc/elements/1.1/",
+      "dcterms" : "http://purl.org/dc/terms/",
+      "foaf" : "http://xmlns.com/foaf/0.1/",
+      "owl" : "http://www.w3.org/2002/07/owl#",
+      "rdf" : "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+      "rdfs" : "http://www.w3.org/2000/01/rdf-schema#",
+      "schema" : "http://schema.org/",
+      "skos" : "http://www.w3.org/2004/02/skos/core#",
+      "xsd" : "http://www.w3.org/2001/XMLSchema#",
+      "model" : "http://data.mimiro.io/amodel/",
+      "things" : "http://data.mimiro.io/things/"
+    }
+  },
+
+  {
+    "id" : "things:1",
+    "refs" : {
+      "rdf:type": "model:Entity",
+      "model:partOf": "things:3"
+    },
+    "props" : {
+      "model:name": "a thing",
+      "model:status": "active"
+    }
+  },
+
+  {
+    "id" : "things:2",
+    "refs" : {
+      "rdf:type": "model:Entity",
+      "model:partOf": "things:3"
+    },
+    "props" : {
+      "model:name": "another thing",
+      "model:status": "active"
+    }
+  },
+
+  {
+    "id" : "things:3",
+    "refs" : {
+      "rdf:type": "model:EntityCollection"
+    },
+    "props" : {
+      "model:name": "collection"
+    }
+  },
+
+  {
+    "id" : "things:4",
+    "refs" : {
+      "rdf:type": "model:AbstractEntity"
+    }
+  },
+
+  {
+    "id" : "things:5",
+    "refs" : {
+      "rdf:type": "model:EntityCollection"
+    }
+  },
+
+  {
+    "id" : "things:6",
+    "props" : {
+      "model:status": [ "active", "inactive" ]
+    },
+    "refs" : {
+      "rdf:type": "model:Entity"
+    }
+  }
+]

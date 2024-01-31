@@ -12,6 +12,7 @@ import (
 func newParser() egdm.Parser {
 	namespaceManager := egdm.NewNamespaceContext()
 	parser := egdm.NewEntityParser(namespaceManager)
+	parser.WithExpandURIs()
 	return parser
 }
 

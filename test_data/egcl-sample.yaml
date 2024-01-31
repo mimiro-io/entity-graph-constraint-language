@@ -1,0 +1,43 @@
+- id: "@context"
+  namespaces:
+    _: http://data.mimiro.io/core/amodel/
+    model: http://data.mimiro.io/amodel/
+    rdf: http://www.w3.org/1999/02/22-rdf-syntax-ns#
+    rdfs: http://www.w3.org/2000/01/rdf-schema#
+    xsd: http://www.w3.org/2001/XMLSchema#
+    egcl: http://data.mimiro.io/egcl/
+
+- id: model:AbstractEntity
+  description: A common base class
+  label: AbstractEntity
+  isAbstract: true
+
+- id: model:EntityCollection
+  description: A collection of entities
+  label: EntityCollection
+  superclasses:
+    - model:Entity
+
+- id: model:Entity
+  description: A common base class for things
+  label: Entity
+  propertyConstraints:
+    - propertyClass: model:name
+      datatype: xsd:string
+      maxCard: 1
+      minCard: 1
+    - propertyClass: model:status
+      datatype: xsd:string
+      maxCard: 1
+      minCard: 0
+  referenceConstraints:
+    - referenceClass: model:partOf
+      referencedEntityClass: model:EntityCollection
+      maxCard: 1
+      minCard: 1
+      inverseReferenceClass: model:contains
+      inverseMaxCard: -1
+      inverseMinCard: 0
+  superclasses:
+    - model:AbstractEntity
+
