@@ -228,7 +228,7 @@ func TestIsAbstractConstraint(t *testing.T) {
 	ec, err := parser.LoadEntityCollection(reader)
 
 	if err != nil {
-		t.Fatalf("error parsing schema: " + err.Error())
+		t.Fatalf("error parsing schema: %v", err)
 	}
 
 	schema := NewSchema(ec)
@@ -552,7 +552,7 @@ func TestHtmlGenerator(t *testing.T) {
 	ec, err := parser.LoadEntityCollection(reader)
 
 	if err != nil {
-		t.Fatalf("error parsing schema: " + err.Error())
+		t.Fatalf("error parsing schema: %v", err)
 	}
 
 	NewSchema(ec)
